@@ -13,7 +13,7 @@ def get_domain_details(api_key, domain):
         # print(result['data']['attributes'])
         if response.status_code == 200:
             whois_info = result['data']['attributes']['whois']
-            print(whois_info)
+            #print(whois_info)
             #Whois has diffent word format for create date
             data_strings = list(["Create date: ", "Creation Date: "])
             for data in data_strings:
