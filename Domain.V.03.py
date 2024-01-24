@@ -16,6 +16,7 @@ def get_domain_details(api_key, domain):
             #print(whois_info)
             #Whois has diffent word format for create date
             data_strings = list(["Create date: ", "Creation Date: "])
+            malicious_vendors = result['data']['attributes']['last_analysis_stats']['malicious']
             for data in data_strings:
                 create_date_index = whois_info.find(data)
                 if create_date_index >= 0:
@@ -25,9 +26,8 @@ def get_domain_details(api_key, domain):
                 create_date_end = create_date_start + 10
                 create_date = whois_info[create_date_start:create_date_end].split()[0]
                 print(f"Create Date: {create_date}")
-
                 print(f"Domain: {domain}.....Processing....done!")
-                malicious_vendors = result['data']['attributes']['last_analysis_stats']['malicious']
+                
                 # print(f"Number of Security Vendors Flagged as Malicious: {malicious_vendors}")
                 return create_date, malicious_vendors
             else:
