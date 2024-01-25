@@ -50,7 +50,7 @@ def save_to_excel(results, output_folder):
     print(f"Results saved to: {output_path}")
 
 if __name__ == "__main__":
-    api_key = '029455493eb333bf6e839263f7375ceb5a97db5845de1b3646775188a7879269'  # Replace with your VirusTotal API key
+    api_key = 'Api_key'  # Replace with your VirusTotal API key
     excel_file_path = "input.xlsx"
     output_folder = "Response"
 
