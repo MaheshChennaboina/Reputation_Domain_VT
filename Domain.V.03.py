@@ -13,9 +13,10 @@ def get_domain_details(api_key, domain):
         # print(result['data']['attributes'])
         if response.status_code == 200:
             whois_info = result['data']['attributes']['whois']
-            print(whois_info)
+            #print(whois_info)
             #Whois has diffent word format for create date
             data_strings = list(["Create date: ", "Creation Date: "])
+            malicious_vendors = result['data']['attributes']['last_analysis_stats']['malicious']
             for data in data_strings:
                 create_date_index = whois_info.find(data)
                 if create_date_index >= 0:
@@ -25,10 +26,14 @@ def get_domain_details(api_key, domain):
                 create_date_end = create_date_start + 10
                 create_date = whois_info[create_date_start:create_date_end].split()[0]
                 print(f"Create Date: {create_date}")
-
                 print(f"Domain: {domain}.....Processing....done!")
+<<<<<<< HEAD
                 malicious_vendors = result['data']['attributes']['last_analysis_stats']['malicious']
                 print(f"Number of Security Vendors Flagged as Malicious: {malicious_vendors}")
+=======
+                
+                # print(f"Number of Security Vendors Flagged as Malicious: {malicious_vendors}")
+>>>>>>> origin/main
                 return create_date, malicious_vendors
             else:
                 print("Create date not found in the whois information.")
@@ -50,7 +55,7 @@ def save_to_excel(results, output_folder):
     print(f"Results saved to: {output_path}")
 
 if __name__ == "__main__":
-    api_key = '029455493eb333bf6e839263f7375ceb5a97db5845de1b3646775188a7879269'  # Replace with your VirusTotal API key
+    api_key = 'Api_key'  # Replace with your VirusTotal API key
     excel_file_path = "input.xlsx"
     output_folder = "Response"
 
