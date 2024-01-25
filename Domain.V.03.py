@@ -28,7 +28,7 @@ def get_domain_details(api_key, domain):
 
                 print(f"Domain: {domain}.....Processing....done!")
                 malicious_vendors = result['data']['attributes']['last_analysis_stats']['malicious']
-                # print(f"Number of Security Vendors Flagged as Malicious: {malicious_vendors}")
+                print(f"Number of Security Vendors Flagged as Malicious: {malicious_vendors}")
                 return create_date, malicious_vendors
             else:
                 print("Create date not found in the whois information.")
