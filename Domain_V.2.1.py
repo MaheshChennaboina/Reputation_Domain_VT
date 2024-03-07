@@ -109,27 +109,33 @@ def save_to_excel(results, output_folder):
             for c in cell:
                 c.font = header_font
 
-        for row in results:
-            Date = datetime.now().strftime("%Y-%m-%d")  # Get today's date
-            domain = row['Domain']
-            create_date = row['Create_Date']
-            malicious_vendors = row['Malicious_Vendors']
-            apex_domain = row['Apex_Domain']
-            ip_address = row['Main_Domain_IP_Address']
-            final_verdict = row['Final_Verdict']
+    # Append data to the appropriate sheet based on the final verdict
+    for row in results:
+        Date = datetime.now().strftime("%Y-%m-%d")  # Get today's date
+        domain = row['Domain']
+        create_date = row['Create_Date']
+        malicious_vendors = row['Malicious_Vendors']
+        apex_domain = row['Apex_Domain']
+        ip_address = row['Main_Domain_IP_Address']
+        final_verdict = row['Final_Verdict']
 
-            if sheet_name == final_verdict:
-                # Convert tuple values to strings
-                if isinstance(malicious_vendors, tuple):
-                    malicious_vendors = str(malicious_vendors)
-                if isinstance(final_verdict, tuple):
-                    final_verdict = str(final_verdict)
+        # Convert tuple to a single value
+        if isinstance(final_verdict, tuple):
+            final_verdict = final_verdict[0]
 
-                # Append data to the worksheet
-                sheet.append([Date, domain, ip_address, create_date, apex_domain, malicious_vendors, final_verdict])
+        sheet = sheets[final_verdict]
+
+        # Convert tuple values to strings
+        if isinstance(malicious_vendors, tuple):
+            malicious_vendors = str(malicious_vendors)
+
+        # Append data to the worksheet
+        sheet.append([Date, domain, ip_address, create_date, apex_domain, malicious_vendors, final_verdict])
 
     wb.save(output_path)
     print(f"{Fore.GREEN}Results saved to: {output_path}")
+
+
 
 def determine_final_verdict(malicious_vendors):
     if malicious_vendors == 0:
@@ -155,18 +161,20 @@ if __name__ == "__main__":
     df = pd.read_excel(excel_file_path, header=0)  # Start reading from the first row
 
     for index, row in df.iterrows():
-        domain = row['Domain']  # Assuming the column name is 'Domain' for the domain names
+        domain = row['Domain']
+        domain_results = []  # Store results for each domain
         for api_key in api_keys:
             create_date, malicious_vendors, ip_address, apex_domain = get_domain_details(api_key, domain)
             if create_date is not None and malicious_vendors is not None:
                 main_domain_verdict = determine_final_verdict(malicious_vendors)
-                if apex_domain != domain:  # Check if the apex domain is different from the main domain
+                if apex_domain != domain:
                     _, apex_malicious_vendors, _, _ = get_domain_details(api_key, apex_domain)
-                    malicious_vendors = (malicious_vendors, apex_malicious_vendors)  # Store both main and apex domain malicious vendors as a tuple
-                    final_verdict = (main_domain_verdict, determine_final_verdict(apex_malicious_vendors))  # Store both main and apex domain final verdicts as a tuple
+                    malicious_vendors = (malicious_vendors, apex_malicious_vendors)
+                    final_verdict = (main_domain_verdict, determine_final_verdict(apex_malicious_vendors))
                 else:
-                    final_verdict = main_domain_verdict  
-                results.append({'Domain': domain, 'Create_Date': create_date, 'Malicious_Vendors': malicious_vendors, 'Apex_Domain': apex_domain, 'Main_Domain_IP_Address': ip_address, 'Final_Verdict': final_verdict})
-                break  # Break the loop once a valid result is obtained using one API key
+                    final_verdict = main_domain_verdict
+                domain_results.append({'Domain': domain, 'Create_Date': create_date, 'Malicious_Vendors': malicious_vendors, 'Apex_Domain': apex_domain, 'Main_Domain_IP_Address': ip_address, 'Final_Verdict': final_verdict})
+        # Append results for this domain to the main results list
+        results.extend(domain_results)
 
     save_to_excel(results, output_folder)
