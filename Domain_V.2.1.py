@@ -174,6 +174,7 @@ if __name__ == "__main__":
                 else:
                     final_verdict = main_domain_verdict
                 domain_results.append({'Domain': domain, 'Create_Date': create_date, 'Malicious_Vendors': malicious_vendors, 'Apex_Domain': apex_domain, 'Main_Domain_IP_Address': ip_address, 'Final_Verdict': final_verdict})
+                break  # Break the loop once the domain is successfully scanned with an API key
         # Append results for this domain to the main results list
         results.extend(domain_results)
 
