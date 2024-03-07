@@ -135,8 +135,6 @@ def save_to_excel(results, output_folder):
     wb.save(output_path)
     print(f"{Fore.GREEN}Results saved to: {output_path}")
 
-
-
 def determine_final_verdict(malicious_vendors):
     if malicious_vendors == 0:
         return "Clean"
@@ -161,21 +159,31 @@ if __name__ == "__main__":
     df = pd.read_excel(excel_file_path, header=0)  # Start reading from the first row
 
     for index, row in df.iterrows():
-        domain = row['Domain']
-        domain_results = []  # Store results for each domain
-        for api_key in api_keys:
-            create_date, malicious_vendors, ip_address, apex_domain = get_domain_details(api_key, domain)
-            if create_date is not None and malicious_vendors is not None:
-                main_domain_verdict = determine_final_verdict(malicious_vendors)
-                if apex_domain != domain:
-                    _, apex_malicious_vendors, _, _ = get_domain_details(api_key, apex_domain)
-                    malicious_vendors = (malicious_vendors, apex_malicious_vendors)
-                    final_verdict = (main_domain_verdict, determine_final_verdict(apex_malicious_vendors))
-                else:
-                    final_verdict = main_domain_verdict
-                domain_results.append({'Domain': domain, 'Create_Date': create_date, 'Malicious_Vendors': malicious_vendors, 'Apex_Domain': apex_domain, 'Main_Domain_IP_Address': ip_address, 'Final_Verdict': final_verdict})
-                break  # Break the loop once the domain is successfully scanned with an API key
-        # Append results for this domain to the main results list
-        results.extend(domain_results)
+        try:
+            domain = row['Domain']
+            domain_results = []  # Store results for each domain
+            for api_key in api_keys:
+                create_date, malicious_vendors, ip_address, apex_domain = get_domain_details(api_key, domain)
+                if create_date is not None and malicious_vendors is not None:
+                    main_domain_verdict = determine_final_verdict(malicious_vendors)
+                    if apex_domain != domain:
+                        _, apex_malicious_vendors, _, _ = get_domain_details(api_key, apex_domain)
+                        if apex_malicious_vendors > 4:
+                            main_domain_verdict = "Malicious"
+                        elif 0 < apex_malicious_vendors <= 4:
+                            main_domain_verdict = "Suspicious"
+                        elif apex_malicious_vendors == 0:
+                            main_domain_verdict = "Clean"
+                        malicious_vendors = (malicious_vendors, apex_malicious_vendors)
+                        final_verdict = (main_domain_verdict, determine_final_verdict(apex_malicious_vendors))
+                    else:
+                        final_verdict = main_domain_verdict
+                    domain_results.append({'Domain': domain, 'Create_Date': create_date, 'Malicious_Vendors': malicious_vendors, 'Apex_Domain': apex_domain, 'Main_Domain_IP_Address': ip_address, 'Final_Verdict': final_verdict})
+                    break  # Break the loop once the domain is successfully scanned with an API key
+            # Append results for this domain to the main results list
+            results.extend(domain_results)
+        except Exception as e:
+            print(f"Error processing row {index}: {e}")
+            continue
 
     save_to_excel(results, output_folder)
