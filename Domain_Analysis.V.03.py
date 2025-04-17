@@ -191,20 +191,20 @@ import requests
 import pandas as pd
 import json
 import os
-import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from colorama import init, Fore, Style
 import logging
-import re
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
+import socket
+import whois
 
 # Initialize colorama
 init()
 
 # Configure logging
-logging.basicConfig(filename='url_analysis.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='domain_analysis.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load API keys from api_keys.json
 with open('api_keys.json') as config_file:
@@ -212,48 +212,40 @@ with open('api_keys.json') as config_file:
 api_keys = config['api_keys']
 api_key = api_keys[0]  # Use the first API key
 
-# Function to convert URL from hxxp://abc[.]com to http://abc.com
-def convert_url(url):
-    return url.replace('hxxp', 'http').replace('[.]', '.')
-
-# Function to check the URL without re-analysis
-def check_url(url):
+# Function to check the domain without re-analysis
+def check_domain(domain):
     headers = {
         "x-apikey": api_key
     }
-    converted_url = convert_url(url)
-    encoded_url = base64.urlsafe_b64encode(converted_url.encode()).decode().strip('=')
-    response = requests.get(f"https://www.virustotal.com/api/v3/urls/{encoded_url}", headers=headers)
+    response = requests.get(f"https://www.virustotal.com/api/v3/domains/{domain}", headers=headers)
     if response.status_code == 200:
         data = response.json()
-        logging.info(f"URL checked successfully: {url}")
-        print(Fore.GREEN + f"URL checked successfully: {url}" + Style.RESET_ALL)
+        logging.info(f"Domain checked successfully: {domain}")
+        print(Fore.GREEN + f"Domain checked successfully: {domain}" + Style.RESET_ALL)
         return data['data']['attributes']['last_analysis_stats']['malicious']
     else:
-        logging.error(f"Error checking URL: {url}. Response: {response.content}")
-        print(Fore.RED + f"Error checking URL: {url}. Response: {response.content}" + Style.RESET_ALL)
+        logging.error(f"Error checking domain: {domain}. Response: {response.content}")
+        print(Fore.RED + f"Error checking domain: {domain}. Response: {response.content}" + Style.RESET_ALL)
         return None
 
-# Function to request a re-analysis of the URL
-def request_reanalysis(url):
+# Function to request a re-analysis of the domain
+def request_reanalysis_domain(domain):
     headers = {
         "x-apikey": api_key
     }
-    converted_url = convert_url(url)
-    encoded_url = base64.urlsafe_b64encode(converted_url.encode()).decode().strip('=')
-    response = requests.post(f"https://www.virustotal.com/api/v3/urls/{encoded_url}/analyse", headers=headers)
+    response = requests.post(f"https://www.virustotal.com/api/v3/domains/{domain}/analyse", headers=headers)
     if response.status_code == 200:
         analysis_id = response.json()['data']['id']
-        logging.info(f"Re-analysis requested successfully: {url}")
-        print(Fore.GREEN + f"Re-analysis requested successfully: {url}" + Style.RESET_ALL)
+        logging.info(f"Re-analysis requested successfully: {domain}")
+        print(Fore.GREEN + f"Re-analysis requested successfully: {domain}" + Style.RESET_ALL)
         return analysis_id
     else:
-        logging.error(f"Error requesting re-analysis: {url}. Response: {response.content}")
-        print(Fore.RED + f"Error requesting re-analysis: {url}. Response: {response.content}" + Style.RESET_ALL)
+        logging.error(f"Error requesting re-analysis: {domain}. Response: {response.content}")
+        print(Fore.RED + f"Error requesting re-analysis: {domain}. Response: {response.content}" + Style.RESET_ALL)
         return None
 
-# Function to get the number of vendors that flagged the URL as malicious after re-analysis
-def get_malicious_score(analysis_id, url):
+# Function to get the number of vendors that flagged the domain as malicious after re-analysis
+def get_malicious_score_domain(analysis_id, domain):
     headers = {
         "x-apikey": api_key
     }
@@ -263,26 +255,26 @@ def get_malicious_score(analysis_id, url):
             data = response.json()
             status = data['data']['attributes']['status']
             if status == 'completed':
-                logging.info(f"Re-analysis completed successfully: {url}")
-                print(Fore.GREEN + f"Re-analysis completed successfully: {url}" + Style.RESET_ALL)
+                logging.info(f"Re-analysis completed successfully: {domain}")
+                print(Fore.GREEN + f"Re-analysis completed successfully: {domain}" + Style.RESET_ALL)
                 return data['data']['attributes']['stats']['malicious']
             else:
-                logging.info(f"Waiting for re-analysis to complete: {url}")
-                print(Fore.YELLOW + f"Waiting for re-analysis to complete: {url}" + Style.RESET_ALL)
+                logging.info(f"Waiting for re-analysis to complete: {domain}")
+                print(Fore.YELLOW + f"Waiting for re-analysis to complete: {domain}" + Style.RESET_ALL)
                 time.sleep(15)  # Wait for 15 seconds before checking again
         else:
-            logging.error(f"Error retrieving re-analysis results: {url}. Response: {response.content}")
-            print(Fore.RED + f"Error retrieving re-analysis results: {url}. Response: {response.content}" + Style.RESET_ALL)
+            logging.error(f"Error retrieving re-analysis results: {domain}. Response: {response.content}")
+            print(Fore.RED + f"Error retrieving re-analysis results: {domain}. Response: {response.content}" + Style.RESET_ALL)
             return None
 
-# Function to get the malicious score based on user selection
-def get_malicious_score_with_rate_limit(url, option, index, total):
+# Function to get the malicious score for domains based on user selection
+def get_malicious_score_with_rate_limit_domain(domain, option, index, total):
     if option == '1':
-        score = check_url(url)
+        score = check_domain(domain)
     elif option == '2':
-        analysis_id = request_reanalysis(url)
+        analysis_id = request_reanalysis_domain(domain)
         if analysis_id:
-            score = get_malicious_score(analysis_id, url)
+            score = get_malicious_score_domain(analysis_id, domain)
         else:
             score = None
     else:
@@ -291,60 +283,65 @@ def get_malicious_score_with_rate_limit(url, option, index, total):
     time.sleep(15)  # Rate limit: 4 requests per minute (15 seconds interval)
     return score
 
-# Function to extract IP address from URL
-def extract_ip(url):
-    ip_pattern = re.compile(r'http://(\d+\.\d+\.\d+\.\d+)')
-    match = ip_pattern.search(url)
-    if match:
-        return match.group(1)
-    return None
+# Function to resolve the IP address for a domain
+def resolve_ip(domain):
+    try:
+        ip_address = socket.gethostbyname(domain)
+        logging.info(f"IP resolved successfully: {domain} -> {ip_address}")
+        print(Fore.GREEN + f"IP resolved successfully: {domain} -> {ip_address}" + Style.RESET_ALL)
+        return ip_address
+    except socket.error as e:
+        logging.error(f"Error resolving IP for domain: {domain}. Error: {e}")
+        print(Fore.RED + f"Error resolving IP for domain: {domain}. Error: {e}" + Style.RESET_ALL)
+        return "IP Not Resolved"
 
-# Function to get ISP and country information for an IP address
-def get_ip_info(ip):
-    response = requests.get(f"https://ipinfo.io/{ip}/json")
-    if response.status_code == 200:
-        data = response.json()
-        isp = data.get('org', 'Unknown')
-        country = data.get('country', 'Unknown')
-        return isp, country
-    else:
-        logging.error(f"Error retrieving IP info: {ip}. Response: {response.content}")
-        print(Fore.RED + f"Error retrieving IP info: {ip}. Response: {response.content}" + Style.RESET_ALL)
-        return 'Unknown', 'Unknown'
+# Function to get the domain creation date and age
+def get_domain_creation_date_and_age(domain):
+    try:
+        domain_info = whois.whois(domain)
+        creation_date = domain_info.creation_date
+        if isinstance(creation_date, list):
+            creation_date = creation_date[0]
+        age = (datetime.now() - creation_date).days
+        logging.info(f"Domain creation date and age retrieved successfully: {domain} -> {creation_date}, {age} days")
+        print(Fore.GREEN + f"Domain creation date and age retrieved successfully: {domain} -> {creation_date}, {age} days" + Style.RESET_ALL)
+        return creation_date, age
+    except Exception as e:
+        logging.error(f"Error retrieving domain creation date and age for domain: {domain}. Error: {e}")
+        print(Fore.RED + f"Error retrieving domain creation date and age for domain: {domain}. Error: {e}" + Style.RESET_ALL)
+        return "Creation Date Not Available", "Domain Age Not Available"
 
 # Prompt user to select an option
 print("Select an option:")
-print("1. Check URL")
-print("2. Re-analyze URL")
+print("1. Check Domain")
+print("2. Re-analyze Domain")
 option = input("Enter the option number (1 or 2): ")
 
 # Load the input Excel file
-input_file = 'URL_input.xlsx'
+input_file = 'Domain_input.xlsx'
 df = pd.read_excel(input_file)
 
-# Add new columns for IP addresses, ISP, and country
-df['IP Address'] = df['URL'].apply(lambda url: extract_ip(convert_url(url)))
-df[['ISP', 'Country']] = df['IP Address'].apply(lambda ip: pd.Series(get_ip_info(ip)) if ip else pd.Series(['Unknown', 'Unknown']))
-
-# Add a new column for the malicious score with rate limiting
-total_urls = len(df)
-df['Number Vendors Flagged as Malicious(URL)'] = [get_malicious_score_with_rate_limit(url, option, index, total_urls) for index, url in enumerate(df['URL'])]
+# Add new columns for the malicious score, IP address, and domain creation date and age with rate limiting
+total_domains = len(df)
+df['Number Vendors Flagged as Malicious(Domain)'] = [get_malicious_score_with_rate_limit_domain(domain, option, index, total_domains) for index, domain in enumerate(df['Domain'])]
+df['IP Address'] = [resolve_ip(domain) for domain in df['Domain']]
+df['Domain Creation Date'], df['Domain Age (days)'] = zip(*[get_domain_creation_date_and_age(domain) for domain in df['Domain']])
 
 # Create output directory if it doesn't exist
-output_dir = 'URL_response'
+output_dir = 'Domain_response'
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-# Create separate DataFrames for clean, suspicious, and malicious URLs
-clean_df = df[df['Number Vendors Flagged as Malicious(URL)'] == 0]
-suspicious_df = df[(df['Number Vendors Flagged as Malicious(URL)'] > 0) & (df['Number Vendors Flagged as Malicious(URL)'] < 5)]
-malicious_df = df[df['Number Vendors Flagged as Malicious(URL)'] >= 5]
+# Create separate DataFrames for clean, suspicious, and malicious domains
+clean_df = df[df['Number Vendors Flagged as Malicious(Domain)'] == 0]
+suspicious_df = df[(df['Number Vendors Flagged as Malicious(Domain)'] > 0) & (df['Number Vendors Flagged as Malicious(Domain)'] < 5)]
+malicious_df = df[df['Number Vendors Flagged as Malicious(Domain)'] >= 5]
 
 # Get current date and time for file naming
 current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 # Save the output to a new Excel file with separate sheets and date in the filename
-output_file = os.path.join(output_dir, f'URL_analysis_{current_datetime}.xlsx')
+output_file = os.path.join(output_dir, f'Domain_analysis_{current_datetime}.xlsx')
 with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
     clean_df.to_excel(writer, sheet_name='Clean', index=False)
     suspicious_df.to_excel(writer, sheet_name='Suspicious', index=False)
@@ -365,12 +362,11 @@ for sheet_name in ['Clean', 'Suspicious', 'Malicious']:
                 if len(str(cell.value)) > max_length:
                     max_length = len(cell.value)
             except:
-                pass
-        adjusted_width = (max_length + 2)
-        ws.column_dimensions[column[0].column_letter].width = adjusted_width
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
 
 wb.save(output_file)
 
 logging.info(f"Output saved to {output_file}")
 print(Fore.GREEN + f"Output saved to {output_file}" + Style.RESET_ALL)
-
